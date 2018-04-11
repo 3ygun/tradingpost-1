@@ -10,8 +10,11 @@
  *
  * @flow
  */
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import MenuBuilder from './menu';
+import * as model from './model';
+import * as ipcTypes from './constants/IpcTypes';
+import * as types from './constants/ActionTypes';
 
 let mainWindow = null;
 
@@ -40,7 +43,6 @@ const installExtensions = async () => {
     .catch(console.log);
 };
 
-
 /**
  * Add event listeners...
  */
@@ -65,7 +67,67 @@ app.on('ready', async () => {
     height: 728
   });
 
-  mainWindow.loadURL(`file://${__dirname}/app.html`);
+  ipcMain.on(ipcTypes.IPC_TO_MAIN, (event, args) => {
+    console.log('main.dev.js todo', args.todo, ' prodtype ', args.todotype)
+    if (args !== undefined && args.todo === 'product') {
+      const products = Object.values(model.getProducts(app.getPath('userData')));
+      event.sender.send(ipcTypes.IPC_TO_RENDER, {
+        type: types.RECEIVE_PRODUCTS,
+        products
+      });
+    }
+    else if (args !== undefined && args.todo === 'productByType') {
+      let prodtype = 'F';
+      if (args.todotype !== undefined) {
+        prodtype = args.todotype;
+      }
+      console.log('call getProductsByType from main.dev.js', prodtype)
+      const products = Object.values(model.getProductsByType(app.getPath('userData'), prodtype));
+      event.sender.send(ipcTypes.IPC_TO_RENDER, {
+        type: types.RECEIVE_PRODUCTS,
+        products
+      });
+    }
+    else if (args !== undefined && args.todo === 'productByName') {
+      let prodname = ' ';
+      console.log('productsByName code')
+      if (args.todotype !== undefined) {
+        prodname = args.todotype;
+      }
+      console.log('call getProductsByName from main.dev.js', prodname)
+      const products = Object.values(model.getProductsByName(app.getPath('userData'), prodname));
+      event.sender.send(ipcTypes.IPC_TO_RENDER, {
+        type: types.RECEIVE_PRODUCTS,
+        products
+      });
+    }
+    else if (args !== undefined && args.todo === 'council') {
+      console.log('call getCouncil from main.dev.js')
+      const councils = Object.values(model.getCouncils(app.getPath('userData')));
+      event.sender.send(ipcTypes.IPC_TO_RENDER, {
+        type: types.RECEIVE_COUNCILS,
+        councils
+      });
+    }
+    else if (args !== undefined && args.todo === 'district') {
+      console.log('call getDistrictsByCouncil from main.dev.js (args)', args.todotype)
+      let councilnum = args.todotype
+      if (!councilnum) {
+        councilnum = 'BSA326'
+      }
+      console.log('call getDistrictsByCouncil from main.dev.js', councilnum)
+      const districts = Object.values(model.getDistrictsByCouncil(app.getPath('userData'), councilnum));
+      event.sender.send(ipcTypes.IPC_TO_RENDER, {
+        type: types.RECEIVE_DISTRICTS,
+        districts
+      });
+    }
+  });
+  
+
+  model.initDb(app.getPath('userData'),
+    mainWindow.loadURL(`file://${__dirname}/app.html`)
+  )
 
   // @TODO: Use 'ready-to-show' event
   //        https://github.com/electron/electron/blob/master/docs/api/browser-window.md#using-ready-to-show-event
